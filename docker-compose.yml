@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: bnto_user
       POSTGRES_PASSWORD: bnto_pass
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - bnto_pgdata:/var/lib/postgresql/data
 
