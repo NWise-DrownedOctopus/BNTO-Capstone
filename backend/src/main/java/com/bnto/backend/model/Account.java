@@ -28,7 +28,7 @@ public class Account {
     private User user;
 
     @OneToMany(mappedBy = "account", cascade = CascadeType.ALL)
-    private List<Transaction> transactions = new ArrayList<>();
+    private List<BankTransaction> transactions = new ArrayList<>();
 
     public Account() {
     }
@@ -76,11 +76,11 @@ public class Account {
         this.user = user;
     }
 
-    public List<Transaction> getTransactions() {
+    public List<BankTransaction> getTransactions() {
         return transactions;
     }
 
-    public void setTransactions(List<Transaction> transactions) {
+    public void setTransactions(List<BankTransaction> transactions) {
         this.transactions = transactions;
     }
 }

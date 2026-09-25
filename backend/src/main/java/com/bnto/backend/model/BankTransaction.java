@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transactions")
-public class Transaction {
+public class BankTransaction {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,10 +29,10 @@ public class Transaction {
     @JoinColumn(name = "account_id", nullable = false)
     private Account account;
 
-    public Transaction() {
+    public BankTransaction() {
     }
 
-    public Transaction(
+    public BankTransaction(
             String description,
             BigDecimal amount,
             LocalDateTime transactionDate,
