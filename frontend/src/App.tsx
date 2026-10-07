@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { getAccounts, type Account } from "./api/accounts";
+import { checkBackendConnection } from "./api/health";
 
 const steps = ["Your details", "Contact info", "Security", "Review"];
 
@@ -361,6 +362,20 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
 }
 
 function SignInPage({ onCreateAccount }: { onCreateAccount: () => void }) {
+    const [backendConnected, setBackendConnected] =
+    useState<boolean | null>(null);
+
+  useEffect(() => {
+    async function checkConnection() {
+      const connected = await checkBackendConnection();
+      setBackendConnected(connected);
+
+      console.log(connected ? "Backend connection successful" : "Backend connection failed");
+    }
+
+    checkConnection();
+  }, []);
+
   const [credentials, setCredentials] = useState({ userId: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
@@ -372,6 +387,7 @@ function SignInPage({ onCreateAccount }: { onCreateAccount: () => void }) {
 
   if (signedIn) {
     return <Dashboard onSignOut={() => setSignedIn(false)} />;
+
   }
 
   return (
