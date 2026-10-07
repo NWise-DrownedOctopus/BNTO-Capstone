@@ -218,4 +218,333 @@ BNTO-Capstone/
 
 **Schema management.** `spring.jpa.hibernate.ddl-auto=update` currently lets Hibernate adjust tables to match our entities. Convenient for now, but it never drops or renames anything, so the schema drifts silently and won't match what a fresh database produces. We should move to Flyway before the schema is worth keeping.
 
-**Frontend.** Nothing here yet. Whoever sets it up should add a section covering install, dev server command, and port.
+**Frontend.** Nothing here yet. Whoever sets it up should add a section covering install, dev server command, and port.]
+
+
+**Schema and ai budget**
+# BNTO Backend
+
+BNTO is a consumer banking application built as a UMKC Computer Science capstone project.
+
+The backend uses **Java/Spring Boot**, **PostgreSQL**, **Docker**, and **Ollama** to provide banking functionality and AI-generated budgeting recommendations.
+
+## Requirements
+
+Install:
+
+- Java 21+
+- Docker Desktop
+- Ollama
+- Git
+
+The project includes the Maven Wrapper, so Maven does not need to be installed separately.
+
+---
+
+# Local Setup
+
+## 1. Pull the Project
+
+```powershell
+git switch main
+git pull origin main
+cd backend
+```
+
+## 2. Start PostgreSQL
+
+From the directory containing `docker-compose.yml`:
+
+```powershell
+docker compose up -d
+```
+
+Check that it is running:
+
+```powershell
+docker ps
+```
+
+Local database configuration:
+
+```text
+Database: bnto
+User: bnto_user
+Password: bnto_pass
+Host Port: 5433
+```
+
+The Docker volume persists database data when using:
+
+```powershell
+docker compose down
+```
+
+Do not use `docker compose down -v` unless you want to delete the database volume.
+
+---
+
+# Ollama Setup
+
+The budgeting feature uses the `qwen3:1.7b` model.
+
+Install/download it with:
+
+```powershell
+ollama pull qwen3:1.7b
+```
+
+Verify it works:
+
+```powershell
+ollama run qwen3:1.7b
+```
+
+The backend connects to Ollama at:
+
+```text
+http://localhost:11434
+```
+
+---
+
+# Run the Backend
+
+From `/backend`:
+
+```powershell
+.\mvnw.cmd spring-boot:run
+```
+
+The API runs at:
+
+```text
+http://localhost:8080
+```
+
+Test the health endpoint:
+
+```powershell
+Invoke-RestMethod `
+    -Uri "http://localhost:8080/api/health" `
+    -Method Get
+```
+
+Expected:
+
+```text
+OK
+```
+
+---
+
+# Current API Endpoints
+
+### Health
+
+```text
+GET /api/health
+```
+
+Checks whether the Spring Boot backend is running.
+
+### Register
+
+```text
+POST /api/auth/register
+```
+
+Creates a user. Passwords are encoded using BCrypt.
+
+### AI Connection Test
+
+```text
+GET /api/ai/test
+```
+
+Tests Spring Boot → Ollama communication.
+
+PowerShell:
+
+```powershell
+Invoke-RestMethod `
+    -Uri "http://localhost:8080/api/ai/test" `
+    -Method Get
+```
+
+Expected response:
+
+```text
+BNTO AI connection successful
+```
+
+### Generate Budget Recommendations
+
+```text
+POST /api/budget/generate?userId=<USER_ID>
+```
+
+Example:
+
+```powershell
+Invoke-RestMethod `
+    -Uri "http://localhost:8080/api/budget/generate?userId=9" `
+    -Method Post
+```
+
+Replace `9` with an actual user ID from the database.
+
+---
+
+# Budget AI
+
+The budget feature reads the user's accounts and transactions from PostgreSQL.
+
+The current transaction convention is:
+
+```text
+Positive amount = income/deposit
+Negative amount = expense/withdrawal
+```
+
+Java calculates:
+
+- Total income
+- Total expenses
+- Remaining income
+- Spending by category
+
+The resulting summary is then sent to Ollama.
+
+```text
+PostgreSQL
+    ↓
+BudgetService
+    ↓
+Java calculates financial totals
+    ↓
+OllamaService
+    ↓
+Qwen3
+    ↓
+3 budgeting recommendations
+```
+
+Ollama does **not** have direct database access and is not responsible for calculating the financial totals.
+
+---
+
+# Access the Database
+
+Open PostgreSQL:
+
+```powershell
+docker exec -it bnto-postgres_db psql -U bnto_user -d bnto
+```
+
+Useful commands:
+
+```sql
+\dt
+
+SELECT * FROM users;
+SELECT * FROM accounts;
+SELECT * FROM transactions;
+```
+
+Exit with:
+
+```text
+\q
+```
+
+---
+
+# Run Tests
+
+Before pushing backend changes:
+
+```powershell
+.\mvnw.cmd test
+```
+
+A successful test should end with:
+
+```text
+BUILD SUCCESS
+```
+
+---
+
+# Configuration
+
+Default PostgreSQL configuration:
+
+```properties
+spring.datasource.url=jdbc:postgresql://localhost:${POSTGRES_PORT:5433}/${POSTGRES_DB:bnto}
+spring.datasource.username=${POSTGRES_USER:bnto_user}
+spring.datasource.password=${POSTGRES_PASSWORD:bnto_pass}
+```
+
+Default Ollama configuration:
+
+```properties
+ollama.base-url=${OLLAMA_BASE_URL:http://localhost:11434}
+ollama.model=${OLLAMA_MODEL:qwen3:1.7b}
+```
+
+These defaults can be overridden using environment variables when deploying.
+
+---
+
+# Current Development Notes
+
+The backend currently includes:
+
+- PostgreSQL database integration
+- User, Account, and BankTransaction entities
+- Spring Data repositories
+- User registration
+- BCrypt password hashing
+- Spring Security foundation
+- Ollama integration
+- Database-backed AI budgeting recommendations
+
+The following still need to be completed before production:
+
+- Login/JWT authentication
+- Authenticated user handling
+- Additional API endpoints
+- Additional automated tests
+- Production Docker/Azure configuration
+
+Currently `/api/ai/test` and `/api/budget/generate` are publicly accessible for development.
+
+The budget endpoint also temporarily accepts:
+
+```text
+?userId=<ID>
+```
+
+Once JWT authentication is implemented, the backend should determine the user from their authentication token instead. This prevents users from requesting another user's financial data by changing the ID.
+
+---
+
+# Quick Start
+
+```powershell
+git pull origin main
+docker compose up -d
+ollama pull qwen3:1.7b
+cd backend
+.\mvnw.cmd test
+.\mvnw.cmd spring-boot:run
+```
+
+Then test:
+
+```text
+GET  http://localhost:8080/api/health
+GET  http://localhost:8080/api/ai/test
+POST http://localhost:8080/api/budget/generate?userId=<USER_ID>
+```
