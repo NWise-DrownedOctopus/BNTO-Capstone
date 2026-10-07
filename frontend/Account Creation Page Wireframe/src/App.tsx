@@ -1,4 +1,5 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { getAccounts, type Account } from "./api/accounts";
 
 const steps = ["Your details", "Contact info", "Security", "Review"];
 
@@ -71,11 +72,24 @@ function DashboardIcon({ name }: { name: DashboardView }) {
 
 function Dashboard({ onSignOut }: { onSignOut: () => void }) {
   const [view, setView] = useState<DashboardView>("accounts");
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const navigation: { id: DashboardView; label: string }[] = [
     { id: "accounts", label: "Accounts" },
     { id: "analytics", label: "Analytics" },
     { id: "budgeting", label: "Budgeting" },
   ];
+
+  useEffect(() => {
+  async function loadAccounts() {
+    const data = await getAccounts();
+    setAccounts(data);
+  }
+
+  loadAccounts();
+}, []);
+  /*const [transactions, setTransactions] =
+    useState<Transaction[]>([]);
+  */
   const transactions = [
     { merchant: "Whole Foods Market", category: "Groceries", date: "Today", amount: "-$84.27", initials: "WF" },
     { merchant: "Salary deposit", category: "Income", date: "Sep 24", amount: "+$3,420.00", initials: "SD" },
@@ -155,14 +169,31 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
                   </div>
                   <p className="mt-10 text-xs text-slate-400">Across 3 accounts</p>
                 </article>
-                <article className="rounded-2xl border border-slate-300 bg-white p-6">
+
+                {accounts.map((account) => (
+                <article 
+                  className="rounded-2xl border border-slate-300 bg-white p-6"
+                  key={account.id} 
+                >
                   <div className="flex items-center justify-between">
-                    <p className="font-semibold">Everyday Checking</p>
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Active</span>
+                    <p className="font-semibold">
+                      {account.name}
+                    </p>
+
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                      Active
+                    </span>
                   </div>
-                  <p className="mt-6 text-2xl font-bold">$8,420.18</p>
-                  <p className="mt-1 text-xs text-slate-500">•••• 4821</p>
+                  <p className="mt-6 text-2xl font-bold">
+                    ${account.balance.toFixed(2)}
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    •••• {account.lastFour}
+                  </p>
                 </article>
+                ))}
+
                 <article className="rounded-2xl border border-slate-300 bg-white p-6">
                   <div className="flex items-center justify-between">
                     <p className="font-semibold">High-Yield Savings</p>
@@ -192,7 +223,12 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
                         <p className="text-xs text-slate-500">{transaction.category} · {transaction.date}</p>
                       </div>
                       <p className={`text-sm font-bold ${transaction.amount.startsWith("+") ? "text-emerald-700" : "text-slate-900"}`}>
+                        <p>{transaction.merchant}</p>
+                        <p>{transaction.category}</p>
                         {transaction.amount}
+//-------------------------------------------------------------------------------------------------------------------------
+                        //  Change made here
+//-------------------------------------------------------------------------------------------------------------------------
                       </p>
                     </div>
                   ))}
