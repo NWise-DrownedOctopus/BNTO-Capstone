@@ -1,0 +1,10 @@
+{
+  "description": "Create and customize interactive bank account signup wireframes to streamline design and improve user onboarding experiences efficiently.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
