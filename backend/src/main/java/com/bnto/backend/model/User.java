@@ -14,7 +14,22 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column (name = "first_name", nullable = false)
+    private String firstName;
+
+    @Column(name = "last_name", nullable = false)
+    private String lastName;
+
+    @Column(name = "date_of_birth", nullable = false)
+    private String dateOfBirth;
+
+    @Column(name = "mobile_number", nullable = false, unique = true)
+    private String mobileNumber;
+
+    @Column(name = "home_address", nullable = false)
+    private String homeAddress;
+
+    @Column(name = "email", nullable = false, unique = true)
     private String email;
 
     @Column(name = "password_hash", nullable = false)
@@ -29,13 +44,58 @@ public class User {
     public User() {
     }
 
-    public User(String email, String passwordHash) {
+    public User(String firstName, String lastName, String dateOfBirth, String mobileNumber, String homeAddress, String email, String passwordHash) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.dateOfBirth = dateOfBirth;
+        this.mobileNumber = mobileNumber;
+        this.homeAddress = homeAddress;
         this.email = email;
         this.passwordHash = passwordHash;
     }
 
     public Long getId() {
         return id;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+    
+    public String getDateOfBirth() {
+        return dateOfBirth;
+    }
+
+    public void setDateOfBirth(String dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
+    }
+
+    public String getMobileNumber() {
+        return mobileNumber;
+    }
+
+    public void setMobileNumber(String mobileNumber) {
+        this.mobileNumber = mobileNumber;
+    }    
+
+    public String getHomeAddress() {
+        return homeAddress;
+    }  
+    
+    public void setHomeAddress(String homeAddress) {
+        this.homeAddress = homeAddress;
     }
 
     public String getEmail() {

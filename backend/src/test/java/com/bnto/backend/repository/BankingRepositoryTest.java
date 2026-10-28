@@ -28,14 +28,24 @@ class BankingRepositoryTest {
     @Autowired
     private TransactionRepository transactionRepository;
 
+    private User buildUser(String email, String mobileNumber) {
+            return new User(
+                "Jane",
+                "Doe",
+                "1990-05-15",
+                mobileNumber,
+                "123 Main St, Kansas City, MO",
+                email,
+                "hashedPassword");
+    }
+
     @Test
     void userAccountAndTransactionRelationshipsWork() {
+        
 
         // Create user
-        User user = new User(
-                "banking-test@bnto.com",
-                "hashedPassword"
-        );
+        User user = userRepository.save(
+                buildUser("banking-test@bnto.com", "555-0200"));
 
         userRepository.save(user);
 
