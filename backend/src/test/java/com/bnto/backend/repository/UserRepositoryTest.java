@@ -93,4 +93,16 @@ class UserRepositoryTest {
                 assertThrows(DataIntegrityViolationException.class,
                                 () -> userRepository.saveAndFlush(user));
         }
+
+        @Test
+        void existsByMobileNumberReturnsTrueForExistingUser() {
+                userRepository.save(buildUser(EMAIL, MOBILE));
+
+                assertTrue(userRepository.existsByMobileNumber(MOBILE));
+        }
+
+        @Test
+        void existsByMobileNumberReturnsFalseForUnknownNumber() {
+                assertFalse(userRepository.existsByMobileNumber("555-9999"));
+        }
 }
