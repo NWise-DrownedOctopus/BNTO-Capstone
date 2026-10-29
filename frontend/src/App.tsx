@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { getAccounts, type Account } from "./api/accounts";
 import { checkBackendConnection } from "./api/health";
+import  AIAssistant from "./pages/AIAssistant";
 
 const steps = ["Your details", "Contact info", "Security", "Review"];
 
@@ -299,62 +300,7 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
               </section>
             </>
           )}
-
-          {view === "budgeting" && (
-            <>
-              <div className="mb-7">
-                <p className="text-sm font-semibold text-slate-500">September plan</p>
-                <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Budgeting dashboard</h1>
-                <p className="mt-2 text-slate-600">Stay on track with monthly category limits.</p>
-              </div>
-              <section className="rounded-2xl bg-slate-900 p-6 text-white sm:p-8">
-                <div className="flex flex-wrap items-end justify-between gap-4">
-                  <div>
-                    <p className="text-sm text-slate-300">Monthly budget used</p>
-                    <p className="mt-2 text-3xl font-bold">$2,724 <span className="text-lg font-medium text-slate-400">of $4,200</span></p>
-                  </div>
-                  <p className="text-sm font-semibold text-slate-300">$1,476 remaining</p>
-                </div>
-                <div className="mt-6 h-3 overflow-hidden rounded-full bg-slate-700">
-                  <div className="h-full w-[65%] rounded-full bg-white" />
-                </div>
-              </section>
-              <section className="mt-6 overflow-hidden rounded-2xl border border-slate-300 bg-white">
-                <div className="border-b border-slate-200 px-5 py-5 sm:px-7">
-                  <h2 className="text-lg font-bold">Category budgets</h2>
-                  <p className="mt-1 text-sm text-slate-500">Resets in 6 days</p>
-                </div>
-                <div className="divide-y divide-slate-200">
-                  {[
-                    ["Housing", 1420, 1500],
-                    ["Food & dining", 624, 800],
-                    ["Transportation", 386, 500],
-                    ["Shopping", 218, 400],
-                    ["Entertainment", 76, 250],
-                  ].map(([label, spent, limit]) => {
-                    const percentage = Math.round((Number(spent) / Number(limit)) * 100);
-                    return (
-                      <div className="px-5 py-5 sm:px-7" key={label}>
-                        <div className="flex items-center justify-between gap-4">
-                          <div>
-                            <p className="text-sm font-semibold">{label}</p>
-                            <p className="mt-1 text-xs text-slate-500">${spent} spent of ${limit}</p>
-                          </div>
-                          <span className={`text-sm font-bold ${percentage >= 90 ? "text-amber-700" : "text-slate-700"}`}>{percentage}%</span>
-                        </div>
-                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-                          <div
-                            className={`h-full rounded-full ${percentage >= 90 ? "bg-amber-600" : "bg-slate-800"}`}
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            </>
-          )}
+          {view === "budgeting" && <AIAssistant />}
         </main>
       </div>
     </div>
