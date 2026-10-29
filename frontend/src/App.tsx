@@ -1,9 +1,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import { getAccounts, type Account } from "./api/accounts";
 import { checkBackendConnection } from "./api/health";
+import { registerUser } from "./api/auth"
+import { loginUser } from "./api/auth"
 
+// REFACTOR: Move the registration wizard step labels to CreateAccountPage.tsx (or a registration constants module).
 const steps = ["Your details", "Contact info", "Security", "Review"];
 
+// REFACTOR: Move this reusable form control to components/Field.tsx; import it in the sign-in and registration pages.
 const Field = ({
   id,
   label,
@@ -35,6 +39,7 @@ const Field = ({
   </label>
 );
 
+// REFACTOR: Move this shared decorative icon to components/icons/ShieldIcon.tsx.
 function ShieldIcon() {
   return (
     <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
@@ -44,8 +49,10 @@ function ShieldIcon() {
   );
 }
 
+// REFACTOR: Move DashboardView with the dashboard component (or a dashboard-specific types file).
 type DashboardView = "accounts" | "analytics" | "budgeting";
 
+// REFACTOR: Move this icon to components/icons/DashboardIcon.tsx; it depends on DashboardView.
 function DashboardIcon({ name }: { name: DashboardView }) {
   return (
     <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
@@ -71,6 +78,9 @@ function DashboardIcon({ name }: { name: DashboardView }) {
   );
 }
 
+// REFACTOR: Move this already-isolated component to pages/Dashboard.tsx.
+// Keep its view/accounts state, account-loading effect, navigation data, and transactions with it.
+// The onSignOut callback must continue to come from the parent authentication/navigation owner.
 function Dashboard({ onSignOut }: { onSignOut: () => void }) {
   const [view, setView] = useState<DashboardView>("accounts");
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -151,6 +161,8 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
         </aside>
 
         <main>
+          {/* REFACTOR (optional): Extract the accounts view into components/dashboard/AccountsView.tsx.
+              Pass accounts and transactions as props, or move their data ownership to that view. */}
           {view === "accounts" && (
             <>
               <div className="mb-7">
@@ -238,6 +250,7 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
             </>
           )}
 
+          {/* REFACTOR (optional): Extract this analytics view into components/dashboard/AnalyticsView.tsx. */}
           {view === "analytics" && (
             <>
               <div className="mb-7">
@@ -300,6 +313,7 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
             </>
           )}
 
+          {/* REFACTOR (optional): Extract this budgeting view into components/dashboard/BudgetingView.tsx. */}
           {view === "budgeting" && (
             <>
               <div className="mb-7">
@@ -361,6 +375,10 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
   );
 }
 
+// REFACTOR: Move this already-isolated component to pages/SignInPage.tsx.
+// Keep its form state, health-check effect, and submit handler with it.
+// For real authentication, the successful login result should eventually be reported to App
+// via a callback rather than having this page own Dashboard and signedIn state.
 function SignInPage({ onCreateAccount }: { onCreateAccount: () => void }) {
     const [backendConnected, setBackendConnected] =
     useState<boolean | null>(null);
@@ -376,13 +394,26 @@ function SignInPage({ onCreateAccount }: { onCreateAccount: () => void }) {
     checkConnection();
   }, []);
 
-  const [credentials, setCredentials] = useState({ userId: "", password: "" });
+  const [credentials, setCredentials] = useState({ userEmail: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
-  const handleSignIn = (event: FormEvent) => {
+  const handleSignIn = async (event: FormEvent) => {
     event.preventDefault();
-    if (credentials.userId && credentials.password) setSignedIn(true);
+
+    try {
+      const response = await loginUser({
+        email: credentials.userEmail,
+        password: credentials.password,
+      });
+
+      //Temporary: Store the token in component state
+      setAccessToken(response.accessToken);
+      setSignedIn(true);
+    } catch (error) {
+      console.error("Login failed:", error);
+    }
   };
 
   if (signedIn) {
@@ -429,10 +460,10 @@ function SignInPage({ onCreateAccount }: { onCreateAccount: () => void }) {
                 <div className="mt-8 grid gap-6">
                   <Field
                     id="signInUserId"
-                    label="Email or user ID"
-                    onChange={(userId) => setCredentials((current) => ({ ...current, userId }))}
+                    label="Email"
+                    onChange={(userId) => setCredentials((current) => ({ ...current, userEmail: userId }))}
                     placeholder="you@example.com"
-                    value={credentials.userId}
+                    value={credentials.userEmail}
                   />
                   <div className="relative">
                     <Field
@@ -465,7 +496,7 @@ function SignInPage({ onCreateAccount }: { onCreateAccount: () => void }) {
 
                 <button
                   className="mt-8 w-full rounded-lg bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                  disabled={!credentials.userId || !credentials.password}
+                  disabled={!credentials.userEmail || !credentials.password}
                   type="submit"
                 >
                   Sign in
@@ -496,8 +527,12 @@ function SignInPage({ onCreateAccount }: { onCreateAccount: () => void }) {
   );
 }
 
+// REFACTOR: Keep App.tsx as the top-level coordinator for page navigation and shared authentication state.
+// Extract the registration wizard into pages/CreateAccountPage.tsx rather than moving App itself.
 export default function App() {
   const [page, setPage] = useState<"create-account" | "sign-in">("create-account");
+  // REFACTOR: Move the following registration-only state (step, showPassword, submitted, values)
+  // into CreateAccountPage.tsx. Keep only shared navigation/authentication state in App.tsx.
   const [step, setStep] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -512,6 +547,9 @@ export default function App() {
     confirmPassword: "",
   });
 
+  // REFACTOR: Move setValue, canContinue, handleSubmit, and reset to CreateAccountPage.tsx;
+  // they operate on registration-only state. The final submission handler will eventually
+  // call registerUser() from api/auth.ts, without changing the component boundary.
   const setValue = (key: keyof typeof values) => (value: string) =>
     setValues((current) => ({ ...current, [key]: value }));
 
@@ -524,14 +562,28 @@ export default function App() {
           ? values.password.length >= 8 && values.password === values.confirmPassword
           : true;
 
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    if (step < 3) {
-      if (canContinue) setStep((current) => current + 1);
-    } else {
-      setSubmitted(true);
+const handleSubmit = async (event: FormEvent) => {
+  event.preventDefault();
+
+  if (step < 3) {
+    if (canContinue) {
+      setStep((current) => current + 1);
     }
-  };
+    return;
+  }
+
+  try {
+    const response = await registerUser({
+      email: values.email,
+      password: values.password,
+    });
+
+    console.log("Account created with ID:", response.userId);
+    setSubmitted(true);
+  } catch (error) {
+    console.error("Registration failed:", error);
+  }
+};
 
   const reset = () => {
     setSubmitted(false);
@@ -548,10 +600,15 @@ export default function App() {
     });
   };
 
+  // REFACTOR: Keep this page-selection decision in App.tsx.
+  // When extracted, render SignInPage or CreateAccountPage and pass navigation callbacks.
   if (page === "sign-in") {
     return <SignInPage onCreateAccount={() => setPage("create-account")} />;
   }
 
+  // REFACTOR: Everything rendered by this return is the CreateAccountPage UI.
+  // Move this JSX along with the registration state/handlers marked above into that component.
+  // App should then render <CreateAccountPage ... /> and provide an onSignIn navigation callback.
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950">
       <header className="border-b border-slate-300 bg-white">
@@ -583,6 +640,8 @@ export default function App() {
             Apply in about 5 minutes. Your information is encrypted and securely stored.
           </p>
 
+          {/* REFACTOR (optional): The registration step navigation can become
+              components/registration/RegistrationSteps.tsx; it needs step and setStep. */}
           <ol className="mt-9 hidden space-y-1 lg:block">
             {steps.map((label, index) => (
               <li key={label}>
@@ -627,6 +686,9 @@ export default function App() {
             </div>
           </div>
 
+          {/* REFACTOR: This registration form, its submission feedback, step-specific
+              fields, and navigation buttons belong in CreateAccountPage.tsx.
+              Individual steps can be extracted later if their complexity warrants it. */}
           <form onSubmit={handleSubmit}>
             <div className="min-h-[520px] px-6 py-8 sm:px-10 sm:py-10">
               {submitted ? (
@@ -658,6 +720,7 @@ export default function App() {
                     </p>
                   </div>
 
+                  {/* REFACTOR (optional): RegistrationDetailsStep.tsx; needs values and setValue. */}
                   {step === 0 && (
                     <div className="grid gap-6 sm:grid-cols-2">
                       <Field id="firstName" label="First name" placeholder="e.g. Jordan" value={values.firstName} onChange={setValue("firstName")} />
@@ -668,6 +731,7 @@ export default function App() {
                     </div>
                   )}
 
+                  {/* REFACTOR (optional): RegistrationContactStep.tsx; needs values and setValue. */}
                   {step === 1 && (
                     <div className="grid gap-6 sm:grid-cols-2">
                       <div className="sm:col-span-2"><Field id="email" label="Email address" placeholder="you@example.com" type="email" value={values.email} onChange={setValue("email")} /></div>
@@ -676,6 +740,8 @@ export default function App() {
                     </div>
                   )}
 
+                  {/* REFACTOR (optional): RegistrationSecurityStep.tsx; needs values, setValue,
+                      showPassword, and setShowPassword. */}
                   {step === 2 && (
                     <div className="grid gap-6">
                       <div className="relative">
@@ -689,6 +755,7 @@ export default function App() {
                     </div>
                   )}
 
+                  {/* REFACTOR (optional): RegistrationReviewStep.tsx; needs values. */}
                   {step === 3 && (
                     <div className="divide-y divide-slate-200 rounded-xl border border-slate-200">
                       {[
@@ -733,3 +800,4 @@ export default function App() {
     </div>
   );
 }
+
