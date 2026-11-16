@@ -1,6 +1,8 @@
 package com.bnto.backend.controller;
 
 import com.bnto.backend.config.SecurityConfig;
+import com.bnto.backend.dto.LoginRequest;
+import com.bnto.backend.dto.LoginResponse;
 import com.bnto.backend.dto.RegisterResponse;
 import com.bnto.backend.exception.DuplicateEmailException;
 import com.bnto.backend.exception.DuplicateMobileNumberException;
@@ -12,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -132,6 +135,56 @@ class AuthControllerWebMvcTest {
                 .thenThrow(new InvalidDateOfBirthException("Date of birth cannot be in the future"));
 
         expectBadDateOfBirth(future, "Date of birth cannot be in the future");
+    }
+
+    // Login
+
+    @Test
+    void loginSuccessReturns200WithToken() throws Exception {
+        when(authService.login(new LoginRequest("jane@bnto.com", "password1!")))
+                .thenReturn(new LoginResponse("fake-jwt", 3600));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "email": "jane@bnto.com", "password": "password1!" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("fake-jwt"))
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.expiresIn").value(3600));
+    }
+
+    @Test
+    void loginInvalidBodyReturns400WithFieldErrorsAndNeverCallsService() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "email": "not-an-email", "password": "" }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Validation failed"))
+                .andExpect(jsonPath("$.fieldErrors", aMapWithSize(2)))
+                .andExpect(jsonPath("$.fieldErrors.email").value("Email must be a valid address"))
+                .andExpect(jsonPath("$.fieldErrors.password").value("Password is required"));
+
+        verify(authService, never()).login(any());
+    }
+
+    // Bad credentials must give a 401 that doesn't reveal whether the account exists.
+    @Test
+    void loginBadCredentialsReturns401WithGenericMessage() throws Exception {
+        when(authService.login(any()))
+                .thenThrow(new BadCredentialsException("internal detail that must not leak"));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "email": "nobody@bnto.com", "password": "wrong-password" }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.message").value("Invalid email or password"));
     }
 
     private void expectBadDateOfBirth(String dateOfBirth, String message) throws Exception {

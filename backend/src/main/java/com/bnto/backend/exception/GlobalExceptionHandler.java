@@ -4,6 +4,7 @@ import com.bnto.backend.dto.ApiError;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -20,6 +21,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DuplicateUserException.class)
     public ResponseEntity<ApiError> handleDuplicateUser(DuplicateUserException ex) {
         return build(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    // Fixed message on purpose: never echo the exception's text, and never distinguish
+    // "no such account" from "wrong password", so the response can't be used to find accounts.
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiError> handleBadCredentials(BadCredentialsException ex) {
+        return build(HttpStatus.UNAUTHORIZED, "Invalid email or password");
     }
 
     @ExceptionHandler(InvalidDateOfBirthException.class)

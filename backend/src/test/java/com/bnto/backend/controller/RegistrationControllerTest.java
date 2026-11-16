@@ -1,5 +1,7 @@
 package com.bnto.backend.controller;
 
+import com.bnto.backend.dto.LoginRequest;
+import com.bnto.backend.dto.LoginResponse;
 import com.bnto.backend.dto.RegisterResponse;
 import com.bnto.backend.service.AuthService;
 import com.bnto.backend.service.RegistrationService;
@@ -93,13 +95,14 @@ class AuthControllerTest {
     // Login Tests
     @Test
     void loginWithOnlyEmailAndPasswordReturns200WithToken() throws Exception {
-        when(authService.login("jane@bnto.com", "password1!")).thenReturn("fake-jwt");
+        when(authService.login(new LoginRequest("jane@bnto.com", "password1!")))
+                .thenReturn(new LoginResponse("fake-jwt", 3600));
 
         mockMvc.perform(post("/api/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(VALID_LOGIN_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").value("fake-jwt"))
+                .andExpect(jsonPath("$.token").value("fake-jwt"))
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.expiresIn").value(3600));
     }
@@ -113,6 +116,6 @@ class AuthControllerTest {
                 .content(blankEmail))
                 .andExpect(status().isBadRequest());
 
-        verify(authService, never()).login(any(), any());
+        verify(authService, never()).login(any());
     }
 }
