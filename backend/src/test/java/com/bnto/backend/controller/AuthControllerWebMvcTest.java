@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
-@Import(SecurityConfig.class) // real security rules, so /api/auth/register must be reachable anonymously
+@Import(SecurityConfig.class) 
 class AuthControllerWebMvcTest {
 
     @Autowired
@@ -40,9 +41,13 @@ class AuthControllerWebMvcTest {
     @MockitoBean
     private AuthService authService;
 
-    // SecurityConfig's JWT resource server needs a decoder; the real one requires JWT_SECRET.
+    // SecurityConfig's JWT resource server needs a decoder; the real one requires JWT_SECRET. 
     @MockitoBean
     private JwtDecoder jwtDecoder;
+
+    // SecurityConfig's AuthenticationManager needs one; @WebMvcTest doesn't load @Service beans.
+    @MockitoBean
+    private UserDetailsService userDetailsService;
 
     private static final String VALID_REGISTER_JSON = """
             {
