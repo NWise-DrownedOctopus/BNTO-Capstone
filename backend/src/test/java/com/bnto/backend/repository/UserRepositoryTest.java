@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import java.time.LocalDate;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
@@ -13,7 +15,7 @@ class UserRepositoryTest {
 
         private static final String FIRST_NAME = "Jane";
         private static final String LAST_NAME = "Doe";
-        private static final String DATE_OF_BIRTH = "1990-05-15";
+        private static final LocalDate DATE_OF_BIRTH = LocalDate.of(1990, 5, 15);
         private static final String HOME_ADDRESS = "123 Main St, Kansas City, MO";
         private static final String PASSWORD_HASH = "hashedPassword";
 

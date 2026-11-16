@@ -86,6 +86,14 @@ class RegistrationServiceTest {
     }
 
     @Test
+    void nonUsCountryCodeIsRejected() {
+        assertThrows(InvalidMobileNumberException.class,
+                () -> registrationService.register(request("jane@bnto.com", "+44 20 7946 0958", validDob())));
+
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
     void impossibleDateOfBirthIsRejected() {
         assertThrows(InvalidDateOfBirthException.class,
                 () -> registrationService.register(request("jane@bnto.com", "555-0100", "2025-02-31")));

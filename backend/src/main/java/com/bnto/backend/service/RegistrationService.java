@@ -52,7 +52,7 @@ public class RegistrationService {
         User user = new User(
                 firstName,
                 lastName,
-                dateOfBirth.toString(), 
+                dateOfBirth,
                 mobileNumber,
                 homeAddress,
                 email,
@@ -66,8 +66,23 @@ public class RegistrationService {
         }
     }
 
+    /**
+     * Strips whitespace, dashes and parentheses. A leading "+" is allowed only
+     * for the US country code (+1) and is discarded, so "+1 (816) 555-0100"
+     * becomes "18165550100". Any other country code is rejected.
+     */
     private String normalizeMobile(String raw) {
-        return raw.trim().replaceAll("[\\s\\-()]", "");
+        String digits = raw.trim().replaceAll("[\\s\\-()]", "");
+        if (digits.startsWith("+")) {
+            if (!digits.startsWith("+1")) {
+                throw new InvalidMobileNumberException("Only US (+1) mobile numbers are supported");
+            }
+            digits = digits.substring(1);
+        }
+        if (digits.contains("+")) {
+            throw new InvalidMobileNumberException("Mobile number contains invalid characters");
+        }
+        return digits;
     }
 
     private LocalDate parseDateOfBirth(String text) {

@@ -2,6 +2,7 @@ package com.bnto.backend.model;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +22,7 @@ public class User {
     private String lastName;
 
     @Column(name = "date_of_birth", nullable = false)
-    private String dateOfBirth;
+    private LocalDate dateOfBirth;
 
     @Column(name = "mobile_number", nullable = false, unique = true)
     private String mobileNumber;
@@ -44,7 +45,7 @@ public class User {
     public User() {
     }
 
-    public User(String firstName, String lastName, String dateOfBirth, String mobileNumber, String homeAddress, String email, String passwordHash) {
+    public User(String firstName, String lastName, LocalDate dateOfBirth, String mobileNumber, String homeAddress, String email, String passwordHash) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.dateOfBirth = dateOfBirth;
@@ -74,11 +75,11 @@ public class User {
         this.lastName = lastName;
     }
     
-    public String getDateOfBirth() {
+    public LocalDate getDateOfBirth() {
         return dateOfBirth;
     }
 
-    public void setDateOfBirth(String dateOfBirth) {
+    public void setDateOfBirth(LocalDate dateOfBirth) {
         this.dateOfBirth = dateOfBirth;
     }
 

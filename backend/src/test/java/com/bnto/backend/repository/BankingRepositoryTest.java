@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -32,7 +33,7 @@ class BankingRepositoryTest {
             return new User(
                 "Jane",
                 "Doe",
-                "1990-05-15",
+                LocalDate.of(1990, 5, 15),
                 mobileNumber,
                 "123 Main St, Kansas City, MO",
                 email,

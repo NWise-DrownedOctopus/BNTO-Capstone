@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -48,7 +49,7 @@ public class AuthService {
 
         String passwordHash = passwordEncoder.encode(password);
         
-        User user = new User(firstName, lastName, dateOfBirth, mobileNumber, homeAddress, normalizedEmail, passwordHash);
+        User user = new User(firstName, lastName, LocalDate.parse(dateOfBirth), mobileNumber, homeAddress, normalizedEmail, passwordHash);
 
         User savedUser = userRepository.save(user);
 
