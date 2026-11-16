@@ -28,7 +28,10 @@ public class SecurityConfig {
                     "/api/health",
                     "/api/auth/register",
                     "/api/auth/login",
-                    "/api/ai/test"
+                    "/api/ai/test",
+                    // Spring Boot forwards unhandled errors here; without this,
+                    // anonymous callers see a 401 instead of the real error.
+                    "/error"
                 ).permitAll()
 
                 .anyRequest().authenticated()
