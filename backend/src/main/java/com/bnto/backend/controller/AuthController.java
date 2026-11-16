@@ -1,10 +1,12 @@
 package com.bnto.backend.controller;
 
+import com.bnto.backend.dto.RegisterRequest;
+import com.bnto.backend.dto.RegisterResponse;
 import com.bnto.backend.service.AuthService;
+import com.bnto.backend.service.RegistrationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,46 +17,39 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final RegistrationService registrationService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService,
+        RegistrationService registrationService) {
         this.authService = authService;
+        this.registrationService = registrationService;
     }
 
-    public record AuthRequest(
+    public record LoginRequest(
         @NotBlank @Email String email,
-        @NotBlank @Size(min = 8) String password
-    ) {}
-
-    public record RegisterResponse(Long userId) {}
+        @NotBlank String password) {
+        @Override
+        public String toString() {
+            return "LoginRequest[email=" + email + "]";
+        }
+    }
 
     public record LoginResponse(
         String accessToken,
         String tokenType,
-        long expiresIn
-    ) {}
+        long expiresIn) {
+    }
 
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(
-            @Valid @RequestBody AuthRequest request
-    ) {
-        Long userId = authService.register(
-            request.email(),
-            request.password()
-        );
-
-        return ResponseEntity.status(HttpStatus.CREATED)
-            .body(new RegisterResponse(userId));
+        @Valid @RequestBody RegisterRequest request) {
+            RegisterResponse response = registrationService.register(request);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/login")
-    public LoginResponse login(
-            @Valid @RequestBody AuthRequest request
-    ) {
-        String token = authService.login(
-            request.email(),
-            request.password()
-        );
-
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+        String token = authService.login(request.email(), request.password());
         return new LoginResponse(token, "Bearer", 3600);
     }
 }

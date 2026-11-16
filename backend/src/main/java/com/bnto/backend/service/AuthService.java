@@ -34,7 +34,8 @@ public class AuthService {
     this.jwtEncoder = jwtEncoder;
 }
 
-    public Long register(String email, String password) {
+    public Long register(String firstName, String lastName, String dateOfBirth, String mobileNumber, String homeAddress,
+            String email, String password) {
 
         String normalizedEmail = email.trim().toLowerCase();
 
@@ -46,8 +47,8 @@ public class AuthService {
         }
 
         String passwordHash = passwordEncoder.encode(password);
-
-        User user = new User(normalizedEmail, passwordHash);
+        
+        User user = new User(firstName, lastName, dateOfBirth, mobileNumber, homeAddress, normalizedEmail, passwordHash);
 
         User savedUser = userRepository.save(user);
 
