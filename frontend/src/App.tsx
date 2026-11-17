@@ -18,7 +18,7 @@ function hasStoredAccessToken(): boolean {
 export default function App() {
   const [page, setPage] = useState<Page>("create-account");
 
-  const [isSignedIn, setIsSignedIn] = useState(hasStoredAccessToken);
+  const [isSignedIn, setIsSignedIn] = useState(hasStoredAccessToken); // Replace with useState(true) to test dashboard page without backend connection
 
   function handleSignIn() {
     setIsSignedIn(true);

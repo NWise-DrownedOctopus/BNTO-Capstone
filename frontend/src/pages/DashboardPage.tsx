@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getAccounts, type Account } from "../api/accounts";
 import DashboardHeader from "../components/dashboard/DashboardHeader";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
-import AccountsView from "../components/dashboard/AccountsView";
+import AccountsView from "../components/dashboard/AccountView";
 import AnalyticsView from "../components/dashboard/AnalyticsView";
 import BudgetingView from "../components/dashboard/BudgetingView";
 
