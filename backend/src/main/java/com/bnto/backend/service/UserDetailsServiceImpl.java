@@ -31,7 +31,6 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
 
         com.bnto.backend.model.User user = userRepository.findByEmail(normalizedEmail)
-                // Generic message: don't echo the email back into logs or responses.
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         return User.withUsername(user.getEmail())
