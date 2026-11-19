@@ -1,162 +1,493 @@
 # BNTO
 
-A consumer portal for bank account holders. Spring Boot backend, PostgreSQL database, TypeScript frontend.
+A consumer banking portal for bank account holders, built as a UMKC Computer Science capstone.
+
+- **Backend:** Java 21 / Spring Boot 4, PostgreSQL, JWT authentication, Ollama for AI budgeting tips
+- **Frontend:** React + TypeScript (Vite), deployed on Vercel
+
+**Live API:** `https://bnto-backend.northcentralus.cloudapp.azure.com`
+(check it with [`/api/health`](https://bnto-backend.northcentralus.cloudapp.azure.com/api/health))
+
+## Contents
+
+- [For frontend developers](#for-frontend-developers): the short version
+- [Run the backend locally](#run-the-backend-locally)
+- [Configuration](#configuration)
+- [API reference](#api-reference)
+- [Calling the API from the frontend](#calling-the-api-from-the-frontend)
+- [Testing](#testing)
+- [Database access](#database-access)
+- [Troubleshooting](#troubleshooting)
+- [Deployment (Azure VM)](#deployment-azure-vm)
+- [Secrets](#secrets)
+- [Project structure](#project-structure)
+- [Known limitations](#known-limitations)
 
 ---
 
-## Prerequisites
+## For frontend developers
 
-Install these before you start:
+You don't need to run the backend to build against it. Point the frontend at the live API:
+
+```bash
+# frontend/.env.local
+VITE_API_URL=https://bnto-backend.northcentralus.cloudapp.azure.com
+```
+
+No trailing slash. Restart `npm run dev` after changing it.
+
+The backend accepts browser requests from two origins:
+
+| Origin | What it is |
+|---|---|
+| `https://frontend-ten-chi-hxiv0m6g7l.vercel.app` | Deployed frontend |
+| `http://localhost:8443` | Local Vite dev server (`npm run dev`) |
+
+If you run the frontend anywhere else, the browser will block it with a CORS error. See [Configuration](#configuration).
+
+The endpoints you'll use most:
+
+| What | Call |
+|---|---|
+| Sign up | `POST /api/auth/register` |
+| Log in (get a token) | `POST /api/auth/login` |
+| Anything protected | add header `Authorization: Bearer <token>` |
+
+Full details: [API reference](#api-reference) and [Calling the API from the frontend](#calling-the-api-from-the-frontend).
+
+---
+
+## Run the backend locally
+
+### Prerequisites
 
 | Tool | Version | Notes |
 |---|---|---|
-| **JDK** | 25 | `java -version` should report 25.x |
+| **JDK** | 21 or newer | `java -version` |
 | **Docker Desktop** | current | Must be **running** before any `docker compose` command |
 | **Git** | any | |
+| **Ollama** | current | Optional. Only needed for the AI endpoints (see [Ollama](#ollama-optional)) |
 
----
+Maven isn't needed: the repo includes the Maven wrapper (`mvnw` / `mvnw.cmd`).
 
-## Quick start
+### 1. Create the root `.env` file
 
-First replace .env.example with .env file with correct secrets (Placeholders in example should be correct)
-
-From a fresh clone, three commands:
-
-```bash
-git clone <repo-url>
-cd BNTO-Capstone
-docker compose up -d
-```
+From the repo root (`BNTO-Capstone/`):
 
 ```bash
-cd backend
-./mvnw spring-boot:run
+cp .env.example .env            # PowerShell: Copy-Item .env.example .env
 ```
 
-> **Windows PowerShell:** use `.\mvnw.cmd spring-boot:run` instead of `./mvnw spring-boot:run`.
-
----
-
-## Step by step
-
-### 1. Start Docker Desktop
-
-Wait until the whale icon in the system tray stops animating. If Docker isn't running, every `docker compose` command fails with confusing daemon errors.
+`docker compose` reads this file to set up the local database. The default values are fine as they are.
 
 ### 2. Start the database
 
-From the **repo root** (`BNTO-Capstone/`, where `docker-compose.yml` lives):
+Start Docker Desktop and wait until it's ready. Then, from the **repo root**:
 
 ```bash
 docker compose up -d
-```
-
-First run pulls the `postgres:16` image and initializes the database — takes 30–60 seconds. Later runs start in about a second.
-
-Confirm it's up:
-
-```bash
 docker compose ps
 ```
 
-You want `STATUS` = `Up` and `PORTS` showing `0.0.0.0:5432->5432/tcp`.
+You want `STATUS` = `Up` and `PORTS` showing `0.0.0.0:5433->5432/tcp`. The first run pulls the `postgres:16` image and takes 30 to 60 seconds.
 
-### 3. Start the backend
+### 3. Set a JWT secret
 
-From the **`backend/` directory**:
+The backend signs login tokens with `JWT_SECRET`, a base64 string of at least 32 random bytes. **It won't start without one.** The backend doesn't read `.env`, so set it in the terminal you'll start the backend from.
 
-```bash
-./mvnw spring-boot:run
+PowerShell:
+
+```powershell
+$b = New-Object byte[] 32
+[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b)
+$env:JWT_SECRET = [Convert]::ToBase64String($b)
 ```
 
-The working directory matters — run it from `backend/`, not the repo root.
+macOS / Linux / Git Bash:
 
-### 4. Verify it's working
+```bash
+export JWT_SECRET="$(openssl rand -base64 32)"
+```
 
-Watch for these two lines near the end of the startup log:
+Any random value works locally. A new value only means earlier tokens stop working. The variable lasts for that terminal session, so set it again in each new terminal, or save it permanently. In PowerShell: `[Environment]::SetEnvironmentVariable("JWT_SECRET", $env:JWT_SECRET, "User")`, then open a new terminal.
+
+### 4. Start the backend
+
+From the **`backend/`** directory, in the same terminal:
+
+```bash
+./mvnw spring-boot:run          # PowerShell: .\mvnw.cmd spring-boot:run
+```
+
+Wait for these lines near the end of the log:
 
 ```
 Tomcat started on port 8080 (http)
 Started BackendApplication in X.XXX seconds
 ```
 
-If you see those, **the server is running and connected to the database.** Hibernate can't initialize without a working database connection, so a successful startup proves the whole chain.
+The backend connects to the database while starting up, so seeing those lines means everything is connected.
 
-Now open <http://localhost:8080> in a browser.
+### 5. Check it
 
-> **You should see a login page** The user name is always user, and the password is generated by spring boot on boot up.
-> The required password should be in your IDE's console. You should then navigate to http://localhost:8080/health 
-> which should show a white page with the text 'OK' if everything was initialized correctly.
+```powershell
+Invoke-RestMethod http://localhost:8080/api/health      # prints: True
+```
 
-### 5. Stopping
+```bash
+curl http://localhost:8080/api/health                    # prints: true
+```
 
-- Backend: `Ctrl+C` in the terminal running it.
-- Database: `docker compose down` from the repo root. Leave off `-v` — that would delete your data.
+The API is now at `http://localhost:8080`. To point a local frontend at it, set `VITE_API_URL=http://localhost:8080` in `frontend/.env.local`.
+
+### 6. Stopping
+
+- Backend: `Ctrl+C` in its terminal.
+- Database: `docker compose down` from the repo root. **Don't add `-v`**: that deletes the database volume and all local data.
+
+### Ollama (optional)
+
+Only `GET /api/ai/test`, and `POST /api/budget/generate` for users who have accounts, call Ollama. Everything else works without it.
+
+```bash
+ollama pull qwen3:1.7b
+ollama run qwen3:1.7b      # quick check; Ctrl+D to exit
+```
+
+The backend expects Ollama at `http://localhost:11434`.
+
+---
+
+## Configuration
+
+All settings come from environment variables, with defaults in `backend/src/main/resources/application.properties`. Locally, only `JWT_SECRET` needs setting.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `JWT_SECRET` | *(none, required)* | Base64 key, at least 32 bytes, for signing login tokens. Must stay the same across restarts, or existing tokens stop working. |
+| `POSTGRES_PORT` | `5433` | Database port. Docker maps 5433 on your machine. A native Postgres install normally uses `5432`. |
+| `POSTGRES_DB` | `bnto` | Database name |
+| `POSTGRES_USER` | `bnto_user` | Database user |
+| `POSTGRES_PASSWORD` | `bnto_pass` | Database password |
+| `CORS_ALLOWED_ORIGINS` | `https://frontend-ten-chi-hxiv0m6g7l.vercel.app,http://localhost:8443` | Comma-separated list of exact frontend origins that may call the API from a browser. No wildcards. |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server |
+| `OLLAMA_MODEL` | `qwen3:1.7b` | Model used for budget tips |
+
+**Adding a frontend origin.** For example, if Vite runs on a different port, set the full list:
+
+```powershell
+$env:CORS_ALLOWED_ORIGINS = "https://frontend-ten-chi-hxiv0m6g7l.vercel.app,http://localhost:8443,http://localhost:5173"
+```
+
+An origin is the scheme, host and port only, with no path and no trailing slash.
+
+---
+
+## API reference
+
+Base URL: `http://localhost:8080` locally, `https://bnto-backend.northcentralus.cloudapp.azure.com` in production.
+
+### Conventions
+
+- **Request bodies** are JSON. Send `Content-Type: application/json`.
+- **Auth:** protected endpoints need `Authorization: Bearer <token>`, using the token from `POST /api/auth/login`.
+- **Errors** from the auth endpoints use one JSON shape (see [Error responses](#error-responses)).
+
+### Endpoints
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| `GET` | `/api/health` | none | Is the backend up? |
+| `POST` | `/api/auth/register` | none | Create an account |
+| `POST` | `/api/auth/login` | none | Log in; returns a token |
+| `POST` | `/api/budget/generate` | **token** | AI budget tips for the logged-in user |
+| `GET` | `/api/ai/test` | none | Checks the backend can reach Ollama (dev only) |
+
+Any other path needs a token, and without one returns `401`.
+
+---
+
+### `GET /api/health`
+
+Returns the JSON value `true` with status `200` when the backend is running.
+
+---
+
+### `POST /api/auth/register`
+
+Creates a user. **It doesn't log them in.** Call `POST /api/auth/login` afterwards to get a token.
+
+**Request**
+
+```json
+{
+  "firstName": "Jane",
+  "lastName": "Doe",
+  "dateOfBirth": "1990-05-15",
+  "mobileNumber": "(816) 555-0100",
+  "homeAddress": "123 Main St, Kansas City, MO",
+  "email": "jane@example.com",
+  "password": "password1!"
+}
+```
+
+| Field | Rules | Message when invalid |
+|---|---|---|
+| `firstName` | required, max 100 characters | `First name is required` / `First name must be 100 characters or fewer` |
+| `lastName` | required, max 100 characters | `Last name is required` / `Last name must be 100 characters or fewer` |
+| `dateOfBirth` | required, `yyyy-MM-dd`, a real date, not in the future, **18 or older** | `Date of birth must be in yyyy-MM-dd format`, or see the 400 example below |
+| `mobileNumber` | required, 7 to 20 characters of digits, spaces, `+ ( ) -` | `Mobile number contains invalid characters` |
+| `homeAddress` | required, max 255 characters | `Home address is required` / `Home address must be 255 characters or fewer` |
+| `email` | required, valid email, max 255 characters | `Email is required` / `Email must be a valid address` |
+| `password` | required, 8 to 72 characters | `Password is required` / `Password must be between 8 and 72 characters` |
+
+**How values are stored:**
+- **Names and address** are trimmed.
+- **Email** is trimmed and lowercased.
+- **Mobile number:** spaces, dashes and parentheses are removed, so `(816) 555-0100` is stored as `8165550100`. A leading `+1` is accepted and stored as `1…`. **Any other country code is rejected.**
+
+**Responses**
+
+| Status | When | Body |
+|---|---|---|
+| `201 Created` | Success | `{ "id": 1, "email": "jane@example.com" }` |
+| `400 Bad Request` | A field breaks a rule above | `ApiError` with `fieldErrors`, one entry per invalid field |
+| `400 Bad Request` | Date is impossible, in the future, or under 18 | `ApiError`, e.g. `"message": "You must be at least 18 years old"` |
+| `400 Bad Request` | Body missing or not valid JSON | `ApiError`, `"message": "Request body is missing or malformed"` |
+| `409 Conflict` | Email or mobile number already registered | `ApiError`, `"message": "Email is already registered"` or `"Mobile number is already registered"` |
+
+The response never includes the password or its hash.
+
+---
+
+### `POST /api/auth/login`
+
+**Request**
+
+```json
+{ "email": "jane@example.com", "password": "password1!" }
+```
+
+Email is case-insensitive. Both fields are required, and `email` must be a valid address.
+
+**Responses**
+
+| Status | When | Body |
+|---|---|---|
+| `200 OK` | Success | see below |
+| `400 Bad Request` | Missing or invalid field | `ApiError` with `fieldErrors` |
+| `401 Unauthorized` | Wrong password **or** no such account | `ApiError`, `"message": "Invalid email or password"` |
+
+The 401 is identical for a wrong password and an unknown email on purpose, so the API can't be used to find out who has an account.
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "tokenType": "Bearer",
+  "expiresIn": 3600
+}
+```
+
+- **`token`:** send it as `Authorization: Bearer <token>` on protected requests.
+- **`expiresIn`:** seconds until the token expires (1 hour). There is no refresh endpoint. When a protected call returns `401`, send the user back to log in.
+- **The token's `sub` claim** is the user's numeric id. Treat the token as opaque; the backend works out who the user is from it.
+
+---
+
+### `POST /api/budget/generate`
+
+**Requires a token.** Returns AI budgeting tips for the **logged-in** user, worked out from their accounts and transactions. No request body or parameters are needed: the user comes from the token.
+
+| Status | Body |
+|---|---|
+| `200 OK` | **Plain text, not JSON.** `No accounts were found for this user.` if the user has no accounts, otherwise the tips (this calls Ollama) |
+| `401 Unauthorized` | Missing, invalid or expired token. **Empty body**, see below |
+
+---
+
+### `GET /api/ai/test`
+
+Development check that the backend can reach Ollama. Returns plain text, normally `BNTO AI connection successful`. Fails with `500` if Ollama isn't running.
+
+---
+
+### Error responses
+
+Errors from the auth endpoints have this shape (`ApiError`):
+
+```json
+{
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Validation failed",
+  "fieldErrors": {
+    "email": "Email must be a valid address",
+    "password": "Password must be between 8 and 72 characters"
+  },
+  "timestamp": "2026-11-19T21:16:01.123Z"
+}
+```
+
+- **`fieldErrors`** is always present. It's `{}` unless the error is about specific fields, and the keys match the request's field names, so you can show each message next to its input.
+- **`message`** is safe to show to users.
+
+**Two kinds of error look different:**
+
+| Case | Status | Body |
+|---|---|---|
+| Missing, invalid or expired token on a protected endpoint | `401` | **Empty**, with a `WWW-Authenticate: Bearer …` header. Don't call `response.json()` on it. |
+| Unexpected server error | `500` | Spring's default `{ timestamp, status, error, path }` |
+
+---
+
+## Calling the API from the frontend
+
+```ts
+// src/api/auth.ts
+const API = import.meta.env.VITE_API_URL;
+
+export type ApiError = {
+  status: number;
+  error: string;
+  message: string;
+  fieldErrors: Record<string, string>;
+  timestamp: string;
+};
+
+export type LoginResponse = { token: string; tokenType: "Bearer"; expiresIn: number };
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw (await res.json()) as ApiError; // auth endpoints always return an ApiError body
+  return res.json() as Promise<T>;
+}
+
+export const register = (user: {
+  firstName: string; lastName: string; dateOfBirth: string; // "yyyy-MM-dd"
+  mobileNumber: string; homeAddress: string; email: string; password: string;
+}) => postJson<{ id: number; email: string }>("/api/auth/register", user);
+
+export const login = (email: string, password: string) =>
+  postJson<LoginResponse>("/api/auth/login", { email, password });
+```
+
+```ts
+// Calling a protected endpoint
+export async function generateBudget(token: string): Promise<string> {
+  const res = await fetch(`${API}/api/budget/generate`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) throw new Error("SESSION_EXPIRED"); // empty body: send the user to log in
+  if (!res.ok) throw new Error(`Budget request failed: ${res.status}`);
+  return res.text(); // plain text, not JSON
+}
+```
+
+Things to get right:
+- **Showing errors:** on a `400`, show `fieldErrors[field]` next to each input. For other errors, show `message`.
+- **Handling 401s:** a `401` from a protected endpoint has no body. Check `res.status` before parsing.
+- **Cookies:** don't use `credentials: "include"`. The token goes in the `Authorization` header, not a cookie.
+
+---
+
+## Testing
+
+From `backend/`:
+
+```bash
+./mvnw test                     # PowerShell: .\mvnw.cmd test
+```
+
+You don't need Docker, Postgres, `JWT_SECRET` or Ollama. The tests use an in-memory H2 database and a test-only secret from `backend/src/test/resources/application.properties`. A passing run ends with `BUILD SUCCESS`.
+
+Run one class or one test:
+
+```powershell
+.\mvnw.cmd test "-Dtest=AuthControllerWebMvcTest"
+.\mvnw.cmd test "-Dtest=AuthServiceTest#wrongPasswordThrowsBadCredentials"
+```
+
+Keep the quotes in PowerShell.
+
+**Trying the running API by hand** (PowerShell):
+
+```powershell
+$api = "http://localhost:8080"
+$reg = @{ firstName="Jane"; lastName="Doe"; dateOfBirth="1990-05-15"; mobileNumber="816-555-0100"
+          homeAddress="123 Main St"; email="jane@example.com"; password="password1!" } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "$api/api/auth/register" -ContentType "application/json" -Body $reg
+
+$login = @{ email="jane@example.com"; password="password1!" } | ConvertTo-Json
+$res = Invoke-RestMethod -Method Post -Uri "$api/api/auth/login" -ContentType "application/json" -Body $login
+
+Invoke-RestMethod -Method Post -Uri "$api/api/budget/generate" -Headers @{ Authorization = "Bearer $($res.token)" }
+```
+
+`Invoke-RestMethod` treats any 4xx response as an error and prints it in red. That's expected when you're testing error cases.
 
 ---
 
 ## Database access
 
-The container runs Postgres 16 with:
+The local database runs in the `bnto-postgres` container:
 
 | Setting | Value |
 |---|---|
 | Host | `localhost` |
-| Port | `5432` |
+| Port | `5433` |
 | Database | `bnto` |
-| User | `bnto` |
-| Password | `bnto_dev` |
+| User | `bnto_user` |
+| Password | `bnto_pass` |
 
-These are **local development credentials only.** The database is reachable only from your own machine and holds nothing but test data. They are intentionally committed to the repo so a fresh clone works with zero setup. Real secrets will never live in git — see *Secrets* below.
-
-To open a SQL shell inside the container:
+These are **local development credentials only**, committed on purpose so a fresh clone works. See [Secrets](#secrets).
 
 ```bash
-docker compose exec postgres psql -U bnto -d bnto
+docker compose exec postgres psql -U bnto_user -d bnto
 ```
 
-Useful once you're in: `\dt` lists tables, `\du` lists roles, `\q` quits.
+Useful once you're in: `\dt` lists tables, `\d users` shows a table's columns, `SELECT * FROM users;`, `\q` quits.
+
+Tables are created and updated automatically from the Java entities when the backend starts (`ddl-auto=update`).
 
 ---
 
 ## Troubleshooting
 
-### "Port 5432 is already allocated"
+### The backend won't start
 
-Something else is using the Postgres port — most likely a native PostgreSQL install from a previous class. Either stop that service, or change the left-hand number in `docker-compose.yml` (`"5433:5432"`) and update the port in `application.properties` to match.
+| Log message | Fix |
+|---|---|
+| `Could not resolve placeholder 'JWT_SECRET'` | `JWT_SECRET` isn't set in this terminal. See [step 3](#3-set-a-jwt-secret). |
+| `JWT_SECRET must contain at least 32 bytes`, or `Illegal base64 character` | The value isn't base64 of 32+ bytes. Generate a new one with the commands in step 3. |
+| `Connection to localhost:5433 refused` | The database isn't running (`docker compose ps`), or Postgres is on another port. Set `POSTGRES_PORT`. |
+| `password authentication failed for user ...` | See below |
+| `Port 8080 is already in use` | Stop the other process, or run on another port: `./mvnw spring-boot:run "-Dspring-boot.run.arguments=--server.port=8081"` |
 
-Check on Windows:
+A variable saved permanently (for example with `SetEnvironmentVariable`) only reaches terminals opened **after** it was saved. Open a new terminal.
 
-```powershell
-Get-Service | Where-Object {$_.Name -like "*postgres*"}
-```
+### "Port 5433 is already allocated" (docker compose)
 
-### "Port 8080 is already in use"
-
-Another Spring app or process has it. Either stop it, or run on a different port:
-
-```bash
-./mvnw spring-boot:run "-Dspring-boot.run.arguments=--server.port=8081"
-```
+Something else is using the port. Either stop it, or change the left-hand number in `docker-compose.yml` (`"5433:5432"`) and set `POSTGRES_PORT` to match.
 
 ### "password authentication failed for user ..."
 
-Over JDBC, Postgres returns this same message whether the password is wrong **or the role doesn't exist at all** — it deliberately won't tell you which, so attackers can't enumerate usernames.
-
-To find out which it actually is, connect from inside the container, where local connections use trust auth and report the real error:
+Postgres gives this same message whether the password is wrong **or the user doesn't exist at all**. Connect from inside the container, where the real error is shown:
 
 ```bash
-docker compose exec postgres psql -U bnto -d bnto -c "\du"
+docker compose exec postgres psql -U bnto_user -d bnto -c "\du"
 ```
 
-- Connects fine → the database is healthy; the problem is on the Spring side.
-- "role does not exist" → the database was initialized with different credentials. See below.
+- **It connects fine:** the database is healthy, and the backend's `POSTGRES_*` values are wrong.
+- **"role does not exist":** the database was created with different credentials. See below.
 
-### Credentials seem right but nothing works
+### Credentials look right but nothing works
 
-**`POSTGRES_USER` and `POSTGRES_PASSWORD` only take effect the first time the data directory is initialized.** Changing them afterward does nothing — Postgres skips initialization when the volume already has data, and gives no warning that it ignored your values.
-
-Any time those values change, you must wipe the volume:
+**The `POSTGRES_*` values in `.env` only take effect the first time the database volume is created.** Postgres ignores later changes without warning. To recreate the database with the current values:
 
 ```bash
 docker compose down -v
@@ -164,39 +495,61 @@ docker compose up -d
 docker compose logs postgres
 ```
 
-The `-v` deletes the volume so initialization runs fresh. In the logs you should see `running bootstrap script` and `performing post-bootstrap initialization`. If it jumps straight to `database system is ready to accept connections` with none of that, the old data survived.
+**This deletes all local data.**
 
-**This wipes all local data.** Fine right now; be careful once we have seed data worth keeping.
+### `docker compose up` warns that variables aren't set
 
-### "service is not running"
+There's no `.env` in the repo root. See [step 1](#1-create-the-root-env-file). Run `docker compose` from the repo root.
 
-The service is named `postgres` (not `db`). And `docker compose` commands must run from the repo root, where `docker-compose.yml` lives.
+### The browser says "blocked by CORS policy"
 
-```bash
-docker compose ps -a        # -a also shows stopped containers
-docker compose logs postgres
+The page's origin isn't in `CORS_ALLOWED_ORIGINS`. Compare the address bar (scheme, host and port) with the list in [Configuration](#configuration). Requests from `curl` or PowerShell are never blocked by CORS, only browsers are.
+
+### `/api/budget/generate` or `/api/ai/test` returns 500
+
+Ollama isn't running, or the model isn't pulled. See [Ollama](#ollama-optional).
+
+---
+
+## Deployment (Azure VM)
+
+The production backend runs on a Windows Server VM in Azure (`bnto-backend.northcentralus.cloudapp.azure.com`). Deployment is manual for now.
+
+```
+Browser ──HTTPS:443──> Caddy (C:\caddy) ──HTTP──> Spring Boot jar on :8080 (C:\bnto) ──> PostgreSQL :5432
 ```
 
-### Container is up but the app can't connect
+| Part | Where | Notes |
+|---|---|---|
+| Backend jar | `C:\bnto\backend-<version>.jar` | Started by hand: `java -jar .\backend-<version>.jar` |
+| Caddy | `C:\caddy` (`caddy.exe`, `Caddyfile`) | HTTPS with an automatic Let's Encrypt certificate. Start with `.\caddy.exe run` |
+| PostgreSQL | Installed directly on Windows, port `5432` | Not Docker |
+| Config | Windows environment variables | `POSTGRES_*`, `POSTGRES_PORT=5432`, `JWT_SECRET`. Ask a team lead; never commit them. |
+| Network | Azure NSG | 80 and 443 open to everyone. 8080 and RDP only from specific addresses. |
 
-Check what Compose actually resolved:
+### Deploying a new version
 
-```bash
-docker compose config
-```
+1. Bump `<version>` in `backend/pom.xml`, then build with `.\mvnw.cmd clean package`. The jar is `backend/target/backend-<version>.jar`.
+2. Copy it to `C:\bnto` on the VM. Over RDP with your local drive shared, `Copy-Item "\\tsclient\<drive>\...\backend-<version>.jar" C:\bnto`.
+3. Stop the running backend (`Ctrl+C` in its window) and start the new jar.
+4. Make sure Caddy is running in its own window.
+5. From your own machine, check `https://bnto-backend.northcentralus.cloudapp.azure.com/api/health` returns `true`.
 
-The `environment:` block should read `bnto` / `bnto_dev` / `bnto`. If it shows anything else, someone has a local `.env` in the repo root overriding the defaults — delete it.
+**Gotchas:**
+- **Stale terminals.** A PowerShell window opened before an environment variable was saved doesn't have it, and the backend then falls back to port 5433 and fails. Use a fresh window, or reload the variable with `$env:NAME = [Environment]::GetEnvironmentVariable("NAME","User")`.
+- **Nothing restarts automatically.** The backend and Caddy only live as long as their windows. Disconnecting from RDP is fine; signing out or rebooting stops both.
+- **Schema changes.** Hibernate adds new columns, but adding a **required** column fails if the table already has rows. Check the startup log for `ALTER TABLE` warnings.
 
 ---
 
 ## Secrets
 
-Local database credentials are committed on purpose, as explained above. Anything that is a *real* secret follows different rules:
+Local database credentials are committed on purpose, as explained above. Real secrets follow different rules:
 
 - Never in git, never in Discord, never in a shared doc.
-- Share through a password manager with a shared vault.
-- Deployment secrets live in the host's secret store, not in a file anyone copies around.
-- Dev and production credentials are always different values.
+- Share them through a password manager with a shared vault.
+- Deployment secrets live on the host, as environment variables on the VM, not in a file people copy around.
+- Dev and production values are always different.
 
 ---
 
@@ -204,347 +557,36 @@ Local database credentials are committed on purpose, as explained above. Anythin
 
 ```
 BNTO-Capstone/
-├── docker-compose.yml       # Postgres service
-├── backend/                 # Spring Boot (Java 25)
-│   ├── mvnw / mvnw.cmd      # Maven wrapper — no Maven install needed
+├── docker-compose.yml          # Local Postgres (reads .env)
+├── .env.example                # Copy to .env
+├── backend/                    # Spring Boot (Java 21)
+│   ├── mvnw / mvnw.cmd         # Maven wrapper
 │   ├── pom.xml
-│   └── src/main/resources/application.properties
-└── frontend/                # TypeScript — not started yet
+│   └── src/
+│       ├── main/java/com/bnto/backend/
+│       │   ├── config/         # Security, JWT, CORS
+│       │   ├── controller/     # REST endpoints
+│       │   ├── dto/            # Request/response bodies (incl. ApiError)
+│       │   ├── exception/      # Exceptions + GlobalExceptionHandler
+│       │   ├── model/          # JPA entities (User, Account, BankTransaction)
+│       │   ├── repository/     # Spring Data repositories
+│       │   └── service/        # Business logic
+│       ├── main/resources/application.properties
+│       └── test/               # JUnit tests + test-only application.properties (H2)
+└── frontend/                   # React + TypeScript (Vite, dev server on :8443)
 ```
+
+### How the budget feature works
+
+`BudgetService` reads the user's accounts and transactions from Postgres. In transactions, a positive amount is income and a negative amount is spending. Java works out total income, total spending, what's left, and spending by category, then sends only that summary to Ollama, which returns three tips. Ollama never sees the database directly and doesn't do the maths.
 
 ---
 
-## Notes
-
-**Schema management.** `spring.jpa.hibernate.ddl-auto=update` currently lets Hibernate adjust tables to match our entities. Convenient for now, but it never drops or renames anything, so the schema drifts silently and won't match what a fresh database produces. We should move to Flyway before the schema is worth keeping.
-
-**Frontend.** Nothing here yet. Whoever sets it up should add a section covering install, dev server command, and port.]
-
-
-**Schema and ai budget**
-# BNTO Backend
-
-BNTO is a consumer banking application built as a UMKC Computer Science capstone project.
-
-The backend uses **Java/Spring Boot**, **PostgreSQL**, **Docker**, and **Ollama** to provide banking functionality and AI-generated budgeting recommendations.
-
-## Requirements
-
-Install:
-
-- Java 21+
-- Docker Desktop
-- Ollama
-- Git
-
-The project includes the Maven Wrapper, so Maven does not need to be installed separately.
-
----
-
-# Local Setup
-
-## 1. Pull the Project
-
-```powershell
-git switch main
-git pull origin main
-cd backend
-```
-
-## 2. Start PostgreSQL
-
-From the directory containing `docker-compose.yml`:
-
-```powershell
-docker compose up -d
-```
-
-Check that it is running:
-
-```powershell
-docker ps
-```
-
-Local database configuration:
-
-```text
-Database: bnto
-User: bnto_user
-Password: bnto_pass
-Host Port: 5433
-```
-
-The Docker volume persists database data when using:
-
-```powershell
-docker compose down
-```
-
-Do not use `docker compose down -v` unless you want to delete the database volume.
-
----
-
-# Ollama Setup
-
-The budgeting feature uses the `qwen3:1.7b` model.
-
-Install/download it with:
-
-```powershell
-ollama pull qwen3:1.7b
-```
-
-Verify it works:
-
-```powershell
-ollama run qwen3:1.7b
-```
-
-The backend connects to Ollama at:
-
-```text
-http://localhost:11434
-```
-
----
-
-# Run the Backend
-
-From `/backend`:
-
-```powershell
-.\mvnw.cmd spring-boot:run
-```
-
-The API runs at:
-
-```text
-http://localhost:8080
-```
-
-Test the health endpoint:
-
-```powershell
-Invoke-RestMethod `
-    -Uri "http://localhost:8080/api/health" `
-    -Method Get
-```
-
-Expected:
-
-```text
-OK
-```
-
----
-
-# Current API Endpoints
-
-### Health
-
-```text
-GET /api/health
-```
-
-Checks whether the Spring Boot backend is running.
-
-### Register
-
-```text
-POST /api/auth/register
-```
-
-Creates a user. Passwords are encoded using BCrypt.
-
-### AI Connection Test
-
-```text
-GET /api/ai/test
-```
-
-Tests Spring Boot → Ollama communication.
-
-PowerShell:
-
-```powershell
-Invoke-RestMethod `
-    -Uri "http://localhost:8080/api/ai/test" `
-    -Method Get
-```
-
-Expected response:
-
-```text
-BNTO AI connection successful
-```
-
-### Generate Budget Recommendations
-
-```text
-POST /api/budget/generate?userId=<USER_ID>
-```
-
-Example:
-
-```powershell
-Invoke-RestMethod `
-    -Uri "http://localhost:8080/api/budget/generate?userId=9" `
-    -Method Post
-```
-
-Replace `9` with an actual user ID from the database.
-
----
-
-# Budget AI
-
-The budget feature reads the user's accounts and transactions from PostgreSQL.
-
-The current transaction convention is:
-
-```text
-Positive amount = income/deposit
-Negative amount = expense/withdrawal
-```
-
-Java calculates:
-
-- Total income
-- Total expenses
-- Remaining income
-- Spending by category
-
-The resulting summary is then sent to Ollama.
-
-```text
-PostgreSQL
-    ↓
-BudgetService
-    ↓
-Java calculates financial totals
-    ↓
-OllamaService
-    ↓
-Qwen3
-    ↓
-3 budgeting recommendations
-```
-
-Ollama does **not** have direct database access and is not responsible for calculating the financial totals.
-
----
-
-# Access the Database
-
-Open PostgreSQL:
-
-```powershell
-docker exec -it bnto-postgres_db psql -U bnto_user -d bnto
-```
-
-Useful commands:
-
-```sql
-\dt
-
-SELECT * FROM users;
-SELECT * FROM accounts;
-SELECT * FROM transactions;
-```
-
-Exit with:
-
-```text
-\q
-```
-
----
-
-# Run Tests
-
-Before pushing backend changes:
-
-```powershell
-.\mvnw.cmd test
-```
-
-A successful test should end with:
-
-```text
-BUILD SUCCESS
-```
-
----
-
-# Configuration
-
-Default PostgreSQL configuration:
-
-```properties
-spring.datasource.url=jdbc:postgresql://localhost:${POSTGRES_PORT:5433}/${POSTGRES_DB:bnto}
-spring.datasource.username=${POSTGRES_USER:bnto_user}
-spring.datasource.password=${POSTGRES_PASSWORD:bnto_pass}
-```
-
-Default Ollama configuration:
-
-```properties
-ollama.base-url=${OLLAMA_BASE_URL:http://localhost:11434}
-ollama.model=${OLLAMA_MODEL:qwen3:1.7b}
-```
-
-These defaults can be overridden using environment variables when deploying.
-
----
-
-# Current Development Notes
-
-The backend currently includes:
-
-- PostgreSQL database integration
-- User, Account, and BankTransaction entities
-- Spring Data repositories
-- User registration
-- BCrypt password hashing
-- Spring Security foundation
-- Ollama integration
-- Database-backed AI budgeting recommendations
-
-The following still need to be completed before production:
-
-- Login/JWT authentication
-- Authenticated user handling
-- Additional API endpoints
-- Additional automated tests
-- Production Docker/Azure configuration
-
-Currently `/api/ai/test` and `/api/budget/generate` are publicly accessible for development.
-
-The budget endpoint also temporarily accepts:
-
-```text
-?userId=<ID>
-```
-
-Once JWT authentication is implemented, the backend should determine the user from their authentication token instead. This prevents users from requesting another user's financial data by changing the ID.
-
----
-
-# Quick Start
-
-```powershell
-git pull origin main
-docker compose up -d
-ollama pull qwen3:1.7b
-cd backend
-.\mvnw.cmd test
-.\mvnw.cmd spring-boot:run
-```
-
-Then test:
-
-```text
-GET  http://localhost:8080/api/health
-GET  http://localhost:8080/api/ai/test
-POST http://localhost:8080/api/budget/generate?userId=<USER_ID>
-```
+## Known limitations
+
+- **No accounts or transactions endpoints yet.** The frontend calls `GET /api/accounts`, which doesn't exist; without a token it returns `401`. Accounts and transactions currently only get into the database through tests or SQL.
+- **No refresh tokens or logout.** Tokens last 1 hour, and then the user logs in again.
+- **Non-US mobile numbers** (`+44…` and so on) return `500` instead of a `400`.
+- **Phone duplicates:** `+1 816-555-0100` and `816-555-0100` are stored as different values (`18165550100` vs `8165550100`), so the same phone can register twice.
+- **Schema management:** `ddl-auto=update` never drops or renames anything, so the schema can drift from the entities. Move to Flyway before the data matters.
+- **No roles:** every logged-in user can reach every protected endpoint.
