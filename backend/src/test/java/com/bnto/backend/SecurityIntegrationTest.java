@@ -5,7 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
-
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -58,8 +58,12 @@ class SecurityIntegrationTest {
                 .header("Authorization", "Bearer " + token)
         )
         .andExpect(status().isOk())
-        .andExpect(content().string("No accounts were found for this user."));
-    }
+        .andExpect(jsonPath("$.periodDays").value(30))
+        .andExpect(jsonPath("$.totalIncome").value(0))
+        .andExpect(jsonPath("$.totalExpenses").value(0))
+        .andExpect(jsonPath("$.remainingIncome").value(0))
+        .andExpect(jsonPath("$.recommendations")
+                .value("No accounts were found for this user."));    }
     @Test
     void budgetEndpointRejectsInvalidJwt() throws Exception {
         mockMvc.perform(
