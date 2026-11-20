@@ -18,7 +18,7 @@ function hasStoredAccessToken(): boolean {
 
 export default function App() {
 
-  /*useEffect(() => {
+  useEffect(() => {
   async function checkConnection() {
     try {
       const result = await checkBackendConnection();
@@ -29,7 +29,7 @@ export default function App() {
   }
 
   checkConnection();
-}, []);*/
+}, []);
 
   const [page, setPage] = useState<Page>("create-account");
 
