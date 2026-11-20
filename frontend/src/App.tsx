@@ -3,6 +3,7 @@ import { checkBackendConnection } from "./api/health";
 import CreateAccountPage from "./pages/CreateAccountPage";
 import SignInPage from "./pages/SignInPage";
 import DashboardPage from "./pages/DashboardPage";
+import  AIAssistant from "./pages/AIAssistant";
 
 type Page = "create-account" | "sign-in";
 
