@@ -1,6 +1,9 @@
 import { useState } from "react";
-
-type GenerationStatus = "idle" | "loading" | "complete";
+import {
+  generateBudget,
+  type BudgetResponse,
+} from "../api/budget";
+type GenerationStatus = "idle" | "loading" | "complete" | "error";
 
 const mockBudgetResponse = `Your Personalized Budget Analysis
 
@@ -64,21 +67,34 @@ const mockRecommendations = [
 ];
 
 export default function AIAssistant() {
+  
   const [status, setStatus] = useState<GenerationStatus>("idle");
-  const [budgetResponse, setBudgetResponse] = useState<string | null>(null);
+  const [budgetResponse, setBudgetResponse] =
+    useState<BudgetResponse | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handleGenerateBudget() {
     if (status === "loading") return;
 
     setStatus("loading");
     setBudgetResponse(null);
+    setErrorMessage(null);
 
-    // Simulate the time needed for AI budget generation.
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const result = await generateBudget();
 
-    setBudgetResponse(mockBudgetResponse);
-    setStatus("complete");
-  }
+      setBudgetResponse(result);
+      setStatus("complete");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "An unexpected error occurred.",
+      );
+      setStatus("error");
+    }
+}
+
 
   return (
     <div>
@@ -123,7 +139,7 @@ export default function AIAssistant() {
         </button>
 
         <p className="mt-3 text-xs text-slate-500">
-          Demo mode: This feature currently uses sample financial data.
+          Your budget is generated using transactions from the last 30 days.
         </p>
       </section>
 
@@ -142,7 +158,20 @@ export default function AIAssistant() {
           </div>
         </section>
       )}
+      {status === "error" && errorMessage && (
+        <section
+          className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-6"
+          role="alert"
+        >
+          <h2 className="font-semibold text-red-800">
+            Unable to generate your budget
+          </h2>
 
+          <p className="mt-2 text-sm text-red-700">
+            {errorMessage}
+          </p>
+        </section>
+      )}
       {/* Generated budget */}
         {status === "complete" && budgetResponse && (
         <section className="mt-6 space-y-6">
@@ -154,24 +183,23 @@ export default function AIAssistant() {
                 Your AI-Generated Budget
                 </h2>
 
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
-                Demo response
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
+                  Last {budgetResponse.periodDays} days
                 </span>
             </div>
 
             <p className="mt-3 text-sm leading-6 text-slate-600">
-                Based on your sample financial activity, here is a suggested
-                monthly budget designed to help you manage spending and
-                increase savings.
+              This analysis is based on your recorded financial activity
+              over the last {budgetResponse.periodDays} days.
             </p>
             </div>
 
             {/* Financial overview */}
             <div className="grid gap-4 sm:grid-cols-3">
             {[
-                ["Monthly income", "$4,250"],
-                ["Current expenses", "$2,875"],
-                ["Remaining income", "$1,375"],
+              ["Income", budgetResponse.totalIncome],
+              ["Expenses", budgetResponse.totalExpenses],
+              ["Remaining income", budgetResponse.remainingIncome],
             ].map(([label, amount]) => (
                 <article
                 key={label}
@@ -182,8 +210,10 @@ export default function AIAssistant() {
                 </p>
 
                 <p className="mt-3 text-2xl font-bold text-slate-900">
-                    {amount}
-                </p>
+                    {amount.toLocaleString("en-US", {
+                      style: "currency",
+                      currency: "USD",
+                    })}                </p>
                 </article>
             ))}
             </div>
@@ -191,42 +221,44 @@ export default function AIAssistant() {
             {/* Budget categories */}
             <div className="rounded-2xl border border-slate-300 bg-white p-6">
             <h3 className="text-lg font-bold text-slate-900">
-                Recommended Monthly Budget
+              Spending by Category
             </h3>
 
             <p className="mt-1 text-sm text-slate-500">
-                Suggested allocations based on your financial activity.
+                Your recorded expenses over the last {budgetResponse.periodDays} days.
             </p>
 
             <div className="mt-6 space-y-5">
-                {mockBudgetCategories.map((category) => {
-                const percentage = (category.amount / 4250) * 100;
+                {Object.entries(budgetResponse.expensesByCategory).map(
+                  ([name, amount]) => {
+                    const percentage =
+                      budgetResponse.totalExpenses > 0
+                        ? (amount / budgetResponse.totalExpenses) * 100
+                        : 0;
 
                 return (
-                    <div key={category.name}>
+                    <div key={name}>
                     <div className="mb-2 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                        <span className="text-xl">{category.icon}</span>
 
                         <span className="text-sm font-semibold text-slate-800">
-                            {category.name}
+                            {name}
                         </span>
                         </div>
 
                         <span className="text-sm font-bold text-slate-900">
-                        ${category.amount.toLocaleString()}
+                          {amount.toLocaleString("en-US", {
+                            style: "currency",
+                            currency: "USD",
+                          })}
                         </span>
                     </div>
 
                     <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                        <div
-                        className={`h-full rounded-full ${
-                            category.name === "Savings"
-                            ? "bg-emerald-600"
-                            : "bg-slate-800"
-                        }`}
-                        style={{ width: `${percentage}%` }}
-                        />
+                      <div
+                        className="h-full rounded-full bg-slate-800"
+                        style={{ width: `${Math.min(100, percentage)}%` }}
+                      />
                     </div>
                     </div>
                 );

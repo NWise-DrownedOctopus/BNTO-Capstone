@@ -1,7 +1,7 @@
 package com.bnto.backend.controller;
 
 import com.bnto.backend.service.BudgetService;
-
+import com.bnto.backend.dto.BudgetResponse;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,7 +19,7 @@ public class BudgetController {
     }
 
     @PostMapping("/generate")
-    public String generateBudget(@AuthenticationPrincipal Jwt jwt) {
+    public BudgetResponse generateBudget(@AuthenticationPrincipal Jwt jwt) {
 
         Long userId = Long.valueOf(jwt.getSubject());
 

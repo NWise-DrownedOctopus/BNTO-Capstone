@@ -1,9 +1,13 @@
 package com.bnto.backend.controller;
 
+import com.bnto.backend.dto.BudgetResponse;
 import com.bnto.backend.service.BudgetService;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jwt.Jwt;
+
+import java.math.BigDecimal;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
@@ -24,15 +28,26 @@ class BudgetControllerTest {
             .subject("22")
             .build();
 
+        // Create a sample structured budget response
+        BudgetResponse expectedResponse = new BudgetResponse(
+            30,
+            new BigDecimal("4200.00"),
+            new BigDecimal("2850.00"),
+            new BigDecimal("1350.00"),
+            Map.of("Groceries", new BigDecimal("450.00")),
+            "Review your grocery spending."
+        );
+
         when(budgetService.generateBudget(22L))
-            .thenReturn("Budget for user 22");
+            .thenReturn(expectedResponse);
 
         // Act: call the controller
-        String result = controller.generateBudget(jwt);
+        BudgetResponse result = controller.generateBudget(jwt);
 
-        // Assert: the correct user's budget was requested
-        assertEquals("Budget for user 22", result);
+        // Assert: the controller returns the expected response
+        assertEquals(expectedResponse, result);
 
+        // Verify the authenticated user's ID was used
         verify(budgetService).generateBudget(22L);
         verifyNoMoreInteractions(budgetService);
     }

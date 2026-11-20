@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import java.time.LocalDateTime;
+import com.bnto.backend.dto.BudgetResponse;
 import org.springframework.stereotype.Service;
 
 import com.bnto.backend.model.Account;
@@ -29,48 +31,94 @@ public class BudgetService {
         this.ollamaService = ollamaService;
     }
 
-    public String generateBudget(Long userId) {
+    public BudgetResponse generateBudget(Long userId) {
+
+        LocalDateTime endDate = LocalDateTime.now();
+        LocalDateTime startDate = endDate.minusDays(30);
 
         List<Account> accounts = accountRepository.findByUserId(userId);
 
         if (accounts.isEmpty()) {
-            return "No accounts were found for this user.";
-        }
+            return new BudgetResponse(
+                    30,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    Map.of(),
+                    "No accounts were found for this user."
+            );
+}
 
         BigDecimal totalIncome = BigDecimal.ZERO;
         BigDecimal totalExpenses = BigDecimal.ZERO;
+
+        int transactionCount = 0;
 
         Map<String, BigDecimal> expensesByCategory = new HashMap<>();
 
         for (Account account : accounts) {
 
             List<BankTransaction> transactions =
-                    transactionRepository.findByAccountId(account.getId());
+                transactionRepository.findByAccountIdAndTransactionDateBetween(
+                        account.getId(),
+                        startDate,
+                        endDate
+        );
 
-            for (BankTransaction transaction : transactions) {
+            
+        for (BankTransaction transaction : transactions) {
 
-                BigDecimal amount = transaction.getAmount();
+            String category = transaction.getCategory();
 
-                if (amount.compareTo(BigDecimal.ZERO) > 0) {
+            // Exclude only transactions explicitly marked as internal transfers.
+            if (category != null &&
+                    category.trim().equalsIgnoreCase("Internal Transfer")) {
+                continue;
+            }
 
-                    totalIncome = totalIncome.add(amount);
+            BigDecimal amount = transaction.getAmount();
 
-                } else if (amount.compareTo(BigDecimal.ZERO) < 0) {
+            if (amount == null) {
+                continue;
+            }
 
-                    BigDecimal expense = amount.abs();
+            transactionCount++;
 
-                    totalExpenses = totalExpenses.add(expense);
+            if (amount.compareTo(BigDecimal.ZERO) > 0) {
 
-                    String category = transaction.getCategory();
+                totalIncome = totalIncome.add(amount);
 
-                    expensesByCategory.merge(
-                            category,
-                            expense,
-                            BigDecimal::add
-                    );
-                }
+            } else if (amount.compareTo(BigDecimal.ZERO) < 0) {
+
+                BigDecimal expense = amount.abs();
+
+                totalExpenses = totalExpenses.add(expense);
+
+                String expenseCategory =
+                        category == null || category.isBlank()
+                                ? "Uncategorized"
+                                : category;
+
+                expensesByCategory.merge(
+                        expenseCategory,
+                        expense,
+                        BigDecimal::add
+                );
             }
         }
+
+        }
+        if (transactionCount == 0) {
+            return new BudgetResponse(
+                    30,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    Map.of(),
+                    "No transactions were found in the last 30 days. "
+                            + "A personalized budget cannot be generated yet."
+            );
+}
 
         BigDecimal remainingIncome =
                 totalIncome.subtract(totalExpenses);
@@ -109,7 +157,7 @@ public class BudgetService {
                     - Do not provide investment, tax, or legal advice.
                     - Be concise, practical, supportive, and non-judgmental.
 
-                Financial summary:
+                Financial summary for the last 30 days:
 
                 Total income: $%s
                 Total expenses: $%s
@@ -133,6 +181,15 @@ public class BudgetService {
                 categorySummary
         );
 
-        return ollamaService.generate(prompt);
+        String recommendations = ollamaService.generate(prompt);
+
+        return new BudgetResponse(
+                30,
+                totalIncome,
+                totalExpenses,
+                remainingIncome,
+                Map.copyOf(expensesByCategory),
+                recommendations
+);
     }
 }

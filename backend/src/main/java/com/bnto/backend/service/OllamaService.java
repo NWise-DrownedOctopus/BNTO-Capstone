@@ -4,6 +4,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.time.Duration;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+
 import java.util.Map;
 
 @Service
@@ -16,8 +19,15 @@ public class OllamaService {
             @Value("${ollama.base-url}") String baseUrl,
             @Value("${ollama.model}") String model) {
 
+        SimpleClientHttpRequestFactory requestFactory =
+            new SimpleClientHttpRequestFactory();
+
+        requestFactory.setConnectTimeout(Duration.ofSeconds(5));
+        requestFactory.setReadTimeout(Duration.ofSeconds(120));
+
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
+                .requestFactory(requestFactory)
                 .build();
 
         this.model = model;
@@ -28,7 +38,8 @@ public class OllamaService {
         Map<String, Object> requestBody = Map.of(
                 "model", model,
                 "prompt", prompt,
-                "stream", false
+                "stream", false,
+                "think", false
         );
 
         OllamaResponse response = restClient.post()
@@ -37,11 +48,16 @@ public class OllamaService {
                 .retrieve()
                 .body(OllamaResponse.class);
 
-        if (response == null) {
-            throw new IllegalStateException("Ollama returned an empty response.");
-        }
+        if (response == null ||
+            response.response() == null ||
+            response.response().isBlank()) {
 
-        return response.response();
+        throw new IllegalStateException(
+                "Ollama returned an empty or invalid response."
+        );
+    }
+
+    return response.response().trim();
     }
 
     private record OllamaResponse(String response) {

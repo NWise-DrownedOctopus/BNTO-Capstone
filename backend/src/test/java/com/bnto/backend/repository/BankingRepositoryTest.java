@@ -95,4 +95,100 @@ class BankingRepositoryTest {
                 transactions.get(0).getCategory()
         );
     }
+        @Test
+        void transactionsAreFilteredToLast30Days() {
+
+        // Arrange: create a test user
+        User user = new User(
+                "date-filter-test@bnto.com",
+                "hashedPassword"
+        );
+
+        userRepository.save(user);
+
+        // Create an account belonging to the user
+        Account account = new Account(
+                "Date Filter Checking",
+                "CHECKING",
+                new BigDecimal("3000.00"),
+                user
+        );
+
+        accountRepository.save(account);
+
+        LocalDateTime now = LocalDateTime.now();
+
+        // Transactions within the last 30 days
+        BankTransaction paycheck = new BankTransaction(
+                "Paycheck",
+                new BigDecimal("3000.00"),
+                now.minusDays(5),
+                "Income",
+                account
+        );
+
+        BankTransaction groceries = new BankTransaction(
+                "Groceries",
+                new BigDecimal("-150.00"),
+                now.minusDays(15),
+                "Groceries",
+                account
+        );
+
+        BankTransaction restaurant = new BankTransaction(
+                "Restaurant",
+                new BigDecimal("-50.00"),
+                now.minusDays(29),
+                "Dining",
+                account
+        );
+
+        // Transactions outside the reporting period
+        BankTransaction oldPurchase = new BankTransaction(
+                "Old Purchase",
+                new BigDecimal("-100.00"),
+                now.minusDays(45),
+                "Shopping",
+                account
+        );
+
+        BankTransaction futurePurchase = new BankTransaction(
+                "Future Purchase",
+                new BigDecimal("-75.00"),
+                now.plusDays(5),
+                "Shopping",
+                account
+        );
+
+        transactionRepository.saveAll(List.of(
+                paycheck,
+                groceries,
+                restaurant,
+                oldPurchase,
+                futurePurchase
+        ));
+
+        // Act: query only transactions within the last 30 days
+        List<BankTransaction> recentTransactions =
+                transactionRepository
+                        .findByAccountIdAndTransactionDateBetween(
+                                account.getId(),
+                                now.minusDays(30),
+                                now
+                        );
+
+        // Assert: exactly three transactions should be returned
+        assertEquals(3, recentTransactions.size());
+
+        List<String> descriptions = recentTransactions.stream()
+                .map(BankTransaction::getDescription)
+                .toList();
+
+        assertTrue(descriptions.contains("Paycheck"));
+        assertTrue(descriptions.contains("Groceries"));
+        assertTrue(descriptions.contains("Restaurant"));
+
+        assertFalse(descriptions.contains("Old Purchase"));
+        assertFalse(descriptions.contains("Future Purchase"));
+        }
 }
