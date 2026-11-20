@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { checkBackendConnection } from "./api/health";
 import CreateAccountPage from "./pages/CreateAccountPage";
 import SignInPage from "./pages/SignInPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -16,6 +17,20 @@ function hasStoredAccessToken(): boolean {
 }
 
 export default function App() {
+
+  /*useEffect(() => {
+  async function checkConnection() {
+    try {
+      const result = await checkBackendConnection();
+      console.log("Backend health check:", result);
+    } catch (error) {
+      console.error("Backend connection failed:", error);
+    }
+  }
+
+  checkConnection();
+}, []);*/
+
   const [page, setPage] = useState<Page>("create-account");
 
   const [isSignedIn, setIsSignedIn] = useState(hasStoredAccessToken); // Replace with useState(true) to test dashboard page without backend connection
