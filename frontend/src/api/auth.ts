@@ -16,7 +16,8 @@ export type RegisterRequest = AuthRequest & {
 };
 
 export interface RegisterResponse {
-  userId: number;
+  id: number;
+  email: string;
 }
 
 export interface LoginResponse {
@@ -140,16 +141,17 @@ export async function registerUser(
 
   if (
     !isRecord(data) ||
-    typeof data.userId !== "number" ||
-    !Number.isSafeInteger(data.userId) ||
-    data.userId <= 0
+    typeof data.id !== "number" ||
+    !Number.isSafeInteger(data.id) ||
+    data.id <= 0 ||
+    typeof data.email !== "string"
   ) {
     throw new Error(
       "Registration succeeded, but the server returned an invalid account response.",
     );
   }
 
-  return { userId: data.userId };
+  return { id: data.id, email: data.email };
 }
 
 export async function loginUser(
@@ -159,10 +161,9 @@ export async function loginUser(
 
   if (
     !isRecord(data) ||
-    typeof data.accessToken !== "string" ||
-    !data.accessToken.trim() ||
-    typeof data.tokenType !== "string" ||
-    !data.tokenType.trim() ||
+    typeof data.token !== "string" ||
+    !data.token.trim() ||
+    data.tokenType !== "Bearer" ||
     typeof data.expiresIn !== "number" ||
     !Number.isFinite(data.expiresIn) ||
     data.expiresIn <= 0
@@ -173,7 +174,7 @@ export async function loginUser(
   }
 
   return {
-    accessToken: data.accessToken,
+    accessToken: data.token,
     tokenType: data.tokenType,
     expiresIn: data.expiresIn,
   };
