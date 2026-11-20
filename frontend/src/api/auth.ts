@@ -7,6 +7,14 @@ export interface AuthRequest {
   password: string;
 }
 
+export type RegisterRequest = AuthRequest & {
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  mobileNumber: string;
+  homeAddress: string;
+};
+
 export interface RegisterResponse {
   userId: number;
 }
@@ -82,7 +90,7 @@ async function getErrorMessage(
 
 async function postAuthRequest(
   endpoint: "register" | "login",
-  credentials: AuthRequest,
+  credentials: AuthRequest | RegisterRequest,
 ): Promise<unknown> {
   let response: Response;
 
@@ -126,7 +134,7 @@ async function postAuthRequest(
 }
 
 export async function registerUser(
-  credentials: AuthRequest,
+  credentials: RegisterRequest,
 ): Promise<RegisterResponse> {
   const data = await postAuthRequest("register", credentials);
 

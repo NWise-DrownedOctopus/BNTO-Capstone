@@ -250,13 +250,15 @@ export default function CreateAccountPage({
     setFormError("");
 
     try {
-      // Keep this payload aligned with the current registerUser API contract.
-      // Confirm whether the backend supports the additional profile fields
-      // before adding them to this request.
       await registerUser({
+        firstName: values.firstName.trim(),
+        lastName: values.lastName.trim(),
+        dateOfBirth: values.birthDate,
+        mobileNumber: values.phone.trim(),
+        homeAddress: values.address.trim(),
         email: values.email.trim(),
         password: values.password,
-      });
+});
 
       setIsSubmitted(true);
     } catch (error) {
